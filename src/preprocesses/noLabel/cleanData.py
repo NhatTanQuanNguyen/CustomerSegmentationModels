@@ -1,8 +1,17 @@
 import pandas as pd
+import numpy as np
 from scipy.stats import skew
 
 
 class RFMPreprocessor:
+    """
+    Xử lý dữ liệu bán hàng thành ma trận RFM (Recency, Frequency, Monetary).
+    Trả về:
+        - X: numpy.ndarray, ma trận chuẩn hóa (để train)
+        - rfm: numpy.ndarray, ma trận RFM gốc (CustomerID, Recency, Frequency, Monetary)
+        - rfm_scaled: numpy.ndarray, ma trận RFM đã chuẩn hóa (CustomerID, Recency, Frequency, Monetary)
+    """
+
     def __init__(self, file_path: str):
         self.file_path = file_path
         self.df = None
@@ -38,7 +47,7 @@ class RFMPreprocessor:
         df_scaled = df.copy()
         for col in cols:
             mean = df[col].mean()
-            std = df[col].std(ddof=0)  # giống sklearn
+            std = df[col].std(ddof=0)
             df_scaled[col] = (df[col] - mean) / std
         return df_scaled
 
@@ -54,6 +63,7 @@ class RFMPreprocessor:
         return rfm
 
     def process(self):
+        # Đọc và xử lý dữ liệu
         df = self.read_data()
         df = self.remove_duplicates(df)
         df = self.filter_invalid(df)
@@ -63,10 +73,18 @@ class RFMPreprocessor:
         skew_value = skew(df["TotalAmount"])
         print(f"Skewness of TotalAmount: {skew_value:.2f}")
 
+        # Tính RFM
         self.rfm = self.calculate_rfm(df)
+
+        # Chuẩn hóa (standardize)
         self.rfm_scaled = self.manual_standardize(
             self.rfm, ["Recency", "Frequency", "Monetary"]
         )
-        self.X = self.rfm_scaled[["Recency", "Frequency", "Monetary"]].to_numpy()
 
-        return self.X
+        # === Chuyển tất cả sang numpy ===
+        self.X = self.rfm_scaled[["Recency", "Frequency", "Monetary"]].to_numpy()
+        rfm_np = self.rfm[["CustomerID", "Recency", "Frequency", "Monetary"]].to_numpy()
+        rfm_scaled_np = self.rfm_scaled[["CustomerID", "Recency", "Frequency", "Monetary"]].to_numpy()
+
+        # Trả về tất cả ở dạng numpy
+        return self.X, rfm_np, rfm_scaled_np

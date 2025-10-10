@@ -5,7 +5,7 @@ from src.preprocesses.noLabel.cleanData import RFMPreprocessor
 
 
 # Thuật toán K-Means thủ công 
-class KMeansNumpy:
+class KMeans:
     def __init__(self, n_clusters=3, max_iters=100, random_state=42):
         self.n_clusters = n_clusters
         self.max_iters = max_iters
