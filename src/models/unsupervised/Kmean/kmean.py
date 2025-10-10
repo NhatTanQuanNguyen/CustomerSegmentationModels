@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+from scipy.spatial.distance import cdist
 from src.preprocesses.noLabel.cleanData import RFMPreprocessor
 
 
@@ -61,12 +64,38 @@ def elbow_method(X, k_range=(1, 10), random_state=42):
 
     print("→ Quan sát điểm khuỷu tay trên biểu đồ để chọn K hợp lý.")
 
+# === Hàm tính Dunn Index ===
+def dunn_index(X, labels):
+    unique_clusters = np.unique(labels)
+    intra_dists = []
+    inter_dists = []
+
+    # Khoảng cách trong cụm
+    for cluster in unique_clusters:
+        cluster_points = X[labels == cluster]
+        if len(cluster_points) > 1:
+            intra_dists.append(np.max(cdist(cluster_points, cluster_points)))
+        else:
+            intra_dists.append(0)
+
+    # Khoảng cách giữa các cụm
+    for i in range(len(unique_clusters)):
+        for j in range(i + 1, len(unique_clusters)):
+            cluster_i = X[labels == unique_clusters[i]]
+            cluster_j = X[labels == unique_clusters[j]]
+            inter_dists.append(np.min(cdist(cluster_i, cluster_j)))
+
+    if len(inter_dists) == 0 or np.max(intra_dists) == 0:
+        return 0
+
+    return np.min(inter_dists) / np.max(intra_dists)
 
 # Chạy toàn bộ pipeline
 if __name__ == "__main__":
     file_path = "data/raw/noLabel/Online Retail.xlsx"  
     pre = RFMPreprocessor(file_path)
     X = pre.process()
+    print(f"✅ Dữ liệu RFM đã được xử lý: {X}")
 
     # Chọn số cụm K bằng Elbow
     elbow_method(X, k_range=(2, 10))
@@ -83,4 +112,15 @@ if __name__ == "__main__":
     cluster_summary = pre.rfm.groupby("Cluster")[["Recency", "Frequency", "Monetary"]].mean()
     print(cluster_summary)
 
-    
+    # === Tính 4 chỉ số đánh giá ===
+    silhouette = silhouette_score(X, kmeans.labels_)
+    dbi = davies_bouldin_score(X, kmeans.labels_)
+    chi = calinski_harabasz_score(X, kmeans.labels_)
+    dunn = dunn_index(X, kmeans.labels_)
+
+    print("\n📊 ĐÁNH GIÁ CHẤT LƯỢNG PHÂN CỤM")
+    print("----------------------------------")
+    print(f"🔹 Silhouette Coefficient: {silhouette:.4f} (cao hơn → tốt hơn)")
+    print(f"🔹 Davies–Bouldin Index (DBI): {dbi:.4f} (thấp hơn → tốt hơn)")
+    print(f"🔹 Calinski–Harabasz Index (CHI): {chi:.4f} (cao hơn → tốt hơn)")
+    print(f"🔹 Dunn Index: {dunn:.4f} (cao hơn → tốt hơn)")
