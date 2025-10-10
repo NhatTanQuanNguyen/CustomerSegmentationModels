@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+from scipy.spatial.distance import cdist
 from src.preprocesses.noLabel.cleanData import RFMPreprocessor
 
 class FuzzyCMeans:
@@ -85,6 +87,31 @@ class FuzzyCMeans:
         n_samples = self.U.shape[0]
         return np.sum(self.U ** 2) / n_samples
 
+# === Hàm tính Dunn Index ===
+def dunn_index(X, labels):
+    unique_clusters = np.unique(labels)
+    intra_dists = []
+    inter_dists = []
+
+    # Khoảng cách trong cụm
+    for cluster in unique_clusters:
+        cluster_points = X[labels == cluster]
+        if len(cluster_points) > 1:
+            intra_dists.append(np.max(cdist(cluster_points, cluster_points)))
+        else:
+            intra_dists.append(0)
+
+    # Khoảng cách giữa các cụm
+    for i in range(len(unique_clusters)):
+        for j in range(i + 1, len(unique_clusters)):
+            cluster_i = X[labels == unique_clusters[i]]
+            cluster_j = X[labels == unique_clusters[j]]
+            inter_dists.append(np.min(cdist(cluster_i, cluster_j)))
+
+    if len(inter_dists) == 0 or np.max(intra_dists) == 0:
+        return 0
+
+    return np.min(inter_dists) / np.max(intra_dists)
 
 if __name__ == "__main__":
     file_path = "data/raw/noLabel/Online Retail.xlsx"  
@@ -99,7 +126,6 @@ if __name__ == "__main__":
         fcm.fit(X)
         fpc = fcm.fuzzy_partition_coefficient()
         fpcs.append(fpc)
-        # print(f"Số cụm = {c}, FPC = {fpc:.4f}")
 
     # Vẽ biểu đồ FPC
     plt.figure(figsize=(8, 5))
@@ -126,8 +152,21 @@ if __name__ == "__main__":
     pre.rfm["Cluster"] = labels
     pre.rfm["MembershipMax"] = memberships.max(axis=1)
 
-    print(pre.rfm.sample(20))
+    print(pre.rfm.head())
 
     cluster_summary = pre.rfm.groupby("Cluster")[["Recency", "Frequency", "Monetary"]].mean()
     print(cluster_summary)
+
+    # === Tính 4 chỉ số đánh giá ===
+    silhouette = silhouette_score(X, labels)
+    dbi = davies_bouldin_score(X, labels)
+    chi = calinski_harabasz_score(X, labels)
+    dunn = dunn_index(X, labels)
+
+    print("\n📊 ĐÁNH GIÁ CHẤT LƯỢNG PHÂN CỤM")
+    print("----------------------------------")
+    print(f"🔹 Silhouette Coefficient: {silhouette:.4f} (cao hơn → tốt hơn)")
+    print(f"🔹 Davies–Bouldin Index (DBI): {dbi:.4f} (thấp hơn → tốt hơn)")
+    print(f"🔹 Calinski–Harabasz Index (CHI): {chi:.4f} (cao hơn → tốt hơn)")
+    print(f"🔹 Dunn Index: {dunn:.4f} (cao hơn → tốt hơn)")
 
