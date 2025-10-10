@@ -8,10 +8,21 @@ class UnsupervisedEvaluator:
     Bộ công cụ đánh giá mô hình không giám sát (KMeans, GMM, FCM,...)
     """
 
+    # ===========================================================
+    # 🔹 THÊM evaluate() — gọi lại hàm internal_metrics cho tiện
+    # ===========================================================
+    @staticmethod
+    def evaluate(X, labels):
+        """Trả về metrics nội tại cho 1 mô hình"""
+        return UnsupervisedEvaluator.internal_metrics(X, labels)
+
+    # ===========================================================
+    # 🔹 TÍNH CÁC CHỈ SỐ NỘI TẠI
+    # ===========================================================
     @staticmethod
     def internal_metrics(X, labels):
         """
-        Tính các chỉ số nội tại của mô hình:
+        Tính các chỉ số nội tại:
         - Silhouette Score
         - Davies-Bouldin Index
         - Calinski-Harabasz Index
@@ -34,8 +45,9 @@ class UnsupervisedEvaluator:
         cluster_means = [X[labels == i].mean(axis=0) for i in unique_labels]
         dist_matrix = cdist(cluster_means, cluster_means)
         inter_cluster = np.min(dist_matrix[np.triu_indices_from(dist_matrix, k=1)])
-        intra_cluster = np.max([np.max(cdist(X[labels == i], X[labels == i]))
-                                for i in unique_labels])
+        intra_cluster = np.max([
+            np.max(cdist(X[labels == i], X[labels == i])) for i in unique_labels
+        ])
         dunn = inter_cluster / (intra_cluster + 1e-12)
 
         return {
@@ -45,6 +57,9 @@ class UnsupervisedEvaluator:
             "dunn": dunn
         }
 
+    # ===========================================================
+    # 🔹 SO SÁNH HAI MÔ HÌNH
+    # ===========================================================
     @staticmethod
     def compare_models(X, labels_a, labels_b, name_a="KMeans", name_b="GMM"):
         """
@@ -54,7 +69,7 @@ class UnsupervisedEvaluator:
         """
         print(f"\n===== 🔎 COMPARISON: {name_a} vs {name_b} =====")
 
-        # 1️⃣ Tính độ tương đồng giữa hai nhãn
+        # 1️⃣ So sánh nhãn
         match_ratio = (labels_a == labels_b).mean()
         print(f"🔸 Label Match Ratio: {match_ratio:.4f}")
 
@@ -63,8 +78,7 @@ class UnsupervisedEvaluator:
         metrics_a = UnsupervisedEvaluator.internal_metrics(X, labels_a)
         metrics_b = UnsupervisedEvaluator.internal_metrics(X, labels_b)
 
-        def fmt(m):
-            return {k: round(v, 4) for k, v in m.items()}
+        def fmt(m): return {k: round(v, 4) for k, v in m.items()}
 
         print(f"{name_a}:", fmt(metrics_a))
         print(f"{name_b}:", fmt(metrics_b))

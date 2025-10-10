@@ -12,6 +12,8 @@ class FuzzyCMeans:
         # Các thuộc tính sẽ được gán sau khi fit
         self.centers = None
         self.U = None  # ma trận mức độ thành viên
+        self.labels_ = None  # ✅ thêm dòng này để tránh lỗi AttributeError
+        self.centroids = None  # ✅ thêm dòng này để tránh lỗi khi gọi fcm.centroids
 
     def _initialize_U(self, n_samples):
         np.random.seed(self.random_state)
@@ -58,6 +60,10 @@ class FuzzyCMeans:
             if diff < self.error:
                 print(f"✅ Converged at iteration {iteration+1}")
                 break
+
+        # ✅ chỉ thêm 2 dòng này, không đổi biến
+        self.labels_ = np.argmax(self.U, axis=1)
+        self.centroids = self.centers
 
         return self
 
@@ -114,7 +120,6 @@ class FuzzyCMeans:
         pre.rfm["Cluster"] = labels
         pre.rfm["MembershipMax"] = memberships.max(axis=1)
 
-
         cluster_summary = (
             pre.rfm.groupby("Cluster")[["Recency", "Frequency", "Monetary"]]
             .mean()
@@ -123,11 +128,3 @@ class FuzzyCMeans:
         np.set_printoptions(precision=6, suppress=True)
 
         return cluster_summary.values
-
-
-
-
-
-
-
-
