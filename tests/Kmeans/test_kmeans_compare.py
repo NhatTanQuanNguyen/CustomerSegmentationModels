@@ -1,18 +1,24 @@
-import pandas as pd
+import sys, os
+# thêm đường dẫn để Python thấy được thư mục src/
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
 import numpy as np
+import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from scipy.spatial.distance import pdist, squareform
 from scipy.optimize import linear_sum_assignment
+
 from src.preprocesses.noLabel.cleanData import RFMPreprocessor
 from src.models.unsupervised.Kmean.main import KMeansNumpy
+from src.utils.export_compare_results import export_compare_results
 
 
+# ====== Tính Dunn Index ======
 def dunn_index(X, labels):
     distances = squareform(pdist(X))
     unique_clusters = np.unique(labels)
     intra_dists, inter_dists = [], []
-
     for i in unique_clusters:
         ci = np.where(labels == i)[0]
         intra_dists.append(np.max(distances[np.ix_(ci, ci)]) if len(ci) > 1 else 0)
@@ -25,9 +31,10 @@ def dunn_index(X, labels):
     return np.min(inter_dists) / np.max(intra_dists)
 
 
+# ====== MAIN ======
 if __name__ == "__main__":
     pre = RFMPreprocessor("data/raw/noLabel/Online Retail.xlsx")
-    X, rfm, _ = pre.process()
+    X, _, _ = pre.process()
 
     k = 4
     print(f"🚀 Test KMeans (K={k}) trên {X.shape[0]} khách hàng")
@@ -42,18 +49,21 @@ if __name__ == "__main__":
     labels_lib = lib.fit_predict(X)
 
     # === Đánh giá ===
-    metrics = ["Silhouette", "DBI", "CHI", "Dunn"]
-    scores = {}
+    results = []
     for lbls, name in [(labels_manual, "Manual"), (labels_lib, "Library")]:
         sil = silhouette_score(X, lbls)
         dbi = davies_bouldin_score(X, lbls)
         chi = calinski_harabasz_score(X, lbls)
         dunn = dunn_index(X, lbls)
-        scores[name] = [sil, dbi, chi, dunn]
-    print("\n📊 So sánh chỉ số:")
-    print(pd.DataFrame(scores, index=metrics).round(4))
+        results.append({
+            "Phiên bản": name,
+            "Silhouette": sil,
+            "DBI": dbi,
+            "CHI": chi,
+            "Dunn": dunn
+        })
 
-    # === So sánh nhãn sau khi căn chỉnh thứ tự cụm ===
+    # === So sánh nhãn (gióng cụm) ===
     cm = np.zeros((k, k))
     for i in range(k):
         for j in range(k):
@@ -61,5 +71,13 @@ if __name__ == "__main__":
     row_ind, col_ind = linear_sum_assignment(-cm)
     matched = sum(cm[i, j] for i, j in zip(row_ind, col_ind))
     match_ratio = matched / len(X)
+    results.append({"Phiên bản": "So sánh nhãn", "MatchRate": match_ratio})
 
-    print(f"\n🎯 Tỷ lệ trùng nhãn (đã gióng cụm): {match_ratio:.4f}")
+    # === Xuất ảnh ===
+    export_compare_results(
+        compare_data=results,
+        title=f"So sánh KMeans (K={k}) - Code tay vs Thư viện",
+        save_path=f"results/KMeans_compare_K{k}.png"
+    )
+
+    print(f"✅ Ảnh kết quả đã lưu tại: results/KMeans_compare_K{k}.png")
