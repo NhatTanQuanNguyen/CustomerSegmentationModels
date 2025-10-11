@@ -1,219 +1,137 @@
-import sys, os
 import streamlit as st
-import numpy as np
+import sys, os, time
 import pandas as pd
+import numpy as np
 import plotly.express as px
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import time
+import plotly.graph_objects as go
 
-# ==========================================
-# 🧩 FIX IMPORT PATH
-# ==========================================
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 from src.preprocesses.noLabel.cleanData import RFMPreprocessor
-from src.models.unsupervised.Kmean.Kmeans_final import KMeans
+from src.models.unsupervised.Kmean.main import KMeansNumpy
+from src.models.unsupervised.FuzzyCMean.main import FuzzyCMeans
 from src.models.unsupervised.GaussianMixtureModel.main import ManualGMM
 from src.evaluation.unsupervised_eval import UnsupervisedEvaluator
 
-
-# ==========================================
-# ⚙️ CONFIG
-# ==========================================
-st.set_page_config(page_title="Unsupervised Comparison (Optimized OOP)", layout="wide")
-st.title("🧠 So sánh mô hình phân cụm (Hướng đối tượng + Caching thông minh)")
+st.set_page_config(page_title="So sánh mô hình không giám sát", layout="wide")
+st.title("🧠 So sánh & Đánh giá mô hình không giám sát")
 st.markdown("---")
 
+@st.cache_resource(show_spinner=False)
+def load_rfm_data():
+    pre = RFMPreprocessor("data/raw/noLabel/Online Retail.xlsx")
+    X, rfm, _ = pre.process()
+    return X, pd.DataFrame(rfm, columns=["CustomerID", "Recency", "Frequency", "Monetary"])
 
-# ==========================================
-# 📦 CLASS 1 — Data Manager (cache dữ liệu)
-# ==========================================
-class DataManager:
-    """Chịu trách nhiệm load và cache dữ liệu RFM"""
+with st.spinner("🔄 Đang xử lý dữ liệu..."):
+    X, rfm = load_rfm_data()
 
-    @st.cache_data(show_spinner=True)
-    def load_data(_, file_path):
-        pre = RFMPreprocessor(file_path)
-        X, rfm, rfm_scaled = pre.process()
-        return X, rfm, rfm_scaled
+st.success(f"✅ Dữ liệu RFM sẵn sàng: {X.shape[0]} khách hàng, {X.shape[1]} đặc trưng")
 
-
-# ==========================================
-# ⚙️ CLASS 2 — Model Runner
-# ==========================================
-class ModelRunner:
-    """Huấn luyện & cache mô hình (KMeans, GMM)"""
-
-    def __init__(self):
-        self.results = {}
-
-    def run_kmeans(self, X, k):
-        start = time.time()
-        model = KMeans(n_clusters=k, random_state=42)
-        model.fit(X)
-        self.results["KMeans"] = {
-            "name": f"KMeans (K={k})",
-            "labels": model.labels_,
-            "centroids": model.centroids,
-            "runtime": round(time.time() - start, 2),
-        }
-        return self.results["KMeans"]
-
-    def run_gmm(self, X, k):
-        start = time.time()
-        result = ManualGMM.run(X, n_components=k)
-        result.update({
-            "name": f"Manual GMM (K={k})",
-            "runtime": round(time.time() - start, 2),
-        })
-        self.results["Manual GMM"] = result
-        return result
-
-    def run_parallel(self, X, jobs):
-        """Chạy nhiều mô hình song song"""
-        with ThreadPoolExecutor(max_workers=len(jobs)) as executor:
-            futures = {}
-            for name, k in jobs:
-                if name == "KMeans":
-                    futures[executor.submit(self.run_kmeans, X, k)] = name
-                elif name == "Manual GMM":
-                    futures[executor.submit(self.run_gmm, X, k)] = name
-
-            progress = st.progress(0)
-            done = 0
-            for future in as_completed(futures):
-                name = futures[future]
-                try:
-                    res = future.result()
-                    st.success(f"✅ {res['name']} hoàn tất (⏱ {res['runtime']}s)")
-                except Exception as e:
-                    st.error(f"❌ Lỗi khi chạy {name}: {e}")
-                done += 1
-                progress.progress(done / len(jobs))
-        return self.results
-
-
-# ==========================================
-# 🎨 CLASS 3 — Visualizer
-# ==========================================
-class Visualizer:
-    """Sinh biểu đồ phân cụm tùy chọn"""
-
-    def __init__(self, rfm_scaled):
-        if isinstance(rfm_scaled, np.ndarray):
-            self.df_base = pd.DataFrame(rfm_scaled[:, -3:], columns=["Recency", "Frequency", "Monetary"])
-        else:
-            self.df_base = rfm_scaled[["Recency", "Frequency", "Monetary"]].copy()
-
-    def render_chart(self, results, chart_type):
-        """Render biểu đồ cho tất cả mô hình"""
-        df_viz = self.df_base.copy()
-        for name, res in results.items():
-            df_viz[name] = res["labels"]
-
-        for name, res in results.items():
-            st.subheader(f"{res['name']} Visualization")
-
-            if chart_type == "3D Scatter":
-                fig = px.scatter_3d(
-                    df_viz, x="Recency", y="Frequency", z="Monetary",
-                    color=df_viz[name].astype(str),
-                    title=f"{res['name']}",
-                    opacity=0.7
-                )
-            elif chart_type == "2D Scatter":
-                fig = px.scatter(
-                    df_viz, x="Recency", y="Monetary",
-                    color=df_viz[name].astype(str),
-                    title=f"{res['name']} (Recency vs Monetary)"
-                )
-            else:
-                fig = px.density_heatmap(
-                    df_viz, x="Recency", y="Monetary",
-                    z=df_viz[name], color_continuous_scale="Viridis",
-                    title=f"{res['name']} Heatmap"
-                )
-            st.plotly_chart(fig, use_container_width=True)
-
-
-# ==========================================
-# 🚀 STREAMLIT UI
-# ==========================================
-st.sidebar.header("📂 Dữ liệu")
-file_path = "data/raw/noLabel/Online Retail.xlsx"
-
-try:
-    data_manager = DataManager()
-    X, rfm, rfm_scaled = data_manager.load_data(file_path)
-    st.sidebar.success(f"✅ Dữ liệu đã tải ({X.shape[0]} KH, {X.shape[1]} đặc trưng)")
-except Exception as e:
-    st.sidebar.error(f"❌ Lỗi khi load dữ liệu: {e}")
-    st.stop()
-
-st.sidebar.markdown("---")
+# ==================== SIDEBAR ====================
 st.sidebar.header("⚙️ Cấu hình mô hình")
 
-algo_choice = st.sidebar.multiselect(
-    "🧩 Chọn thuật toán muốn chạy",
-    ["KMeans", "Manual GMM"],
-    default=st.session_state.get("algo_choice", ["KMeans", "Manual GMM"])
+models = st.sidebar.multiselect(
+    "Chọn mô hình cần chạy",
+    ["KMeans", "FuzzyCMeans", "ManualGMM"],
+    default=["KMeans", "FuzzyCMeans", "ManualGMM"]
 )
-st.session_state["algo_choice"] = algo_choice
 
-chart_type = st.sidebar.radio(
-    "📊 Chọn loại biểu đồ",
-    ["3D Scatter", "2D Scatter", "Heatmap"],
-    index=st.session_state.get("chart_index", 0),
-    key="chart_type"
-)
-st.session_state["chart_index"] = ["3D Scatter", "2D Scatter", "Heatmap"].index(chart_type)
+k_values = {m: st.sidebar.slider(f"{m} — Chọn K", 2, 15, 3) for m in models}
+viz_type = st.sidebar.radio("🎨 Kiểu hiển thị cụm", ["3D", "2D"], index=0)
+chart_type = st.sidebar.selectbox("📊 Kiểu biểu đồ chỉ số", ["Heatmap", "Bar", "Line"], index=0)
+run_btn = st.sidebar.button("🚀 Chạy mô hình")
 
-colK1, colK2 = st.sidebar.columns(2)
-k_kmeans = colK1.slider("K cho KMeans", 2, 10, st.session_state.get("k_kmeans", 3), 1, key="k_kmeans")
-k_gmm = colK2.slider("K cho GMM", 2, 10, st.session_state.get("k_gmm", 3), 1, key="k_gmm")
+# ==================== BIỂU ĐỒ CHỌN K ====================
+def show_model_curves(X):
+    st.markdown("## 🔍 Biểu đồ tham khảo tìm K tối ưu")
+    tabs = st.tabs(["KMeans", "FuzzyCMeans", "ManualGMM"])
 
-run_button = st.sidebar.button("🚀 Chạy mô hình")
+    with tabs[0]:
+        sse = []
+        for k in range(2, 11):
+            sse.append(KMeansNumpy.fit_k(X, k)["metrics"]["curve"][0])
+        fig = px.line(x=list(range(2, 11)), y=sse, markers=True, title="KMeans — SSE vs K")
+        st.plotly_chart(fig, use_container_width=True)
 
-# ==========================================
-# 🧠 MAIN EXECUTION
-# ==========================================
-if run_button:
-    st.subheader("🚀 Đang chạy mô hình song song...")
+    with tabs[1]:
+        fpcs = []
+        for k in range(2, 11):
+            fpcs.append(FuzzyCMeans.fit_k(X, k)["metrics"]["fpc"])
+        fig = px.line(x=list(range(2, 11)), y=fpcs, markers=True, title="FuzzyCMeans — FPC vs K")
+        st.plotly_chart(fig, use_container_width=True)
 
-    runner = ModelRunner()
-    jobs = []
-    if "KMeans" in algo_choice:
-        jobs.append(("KMeans", k_kmeans))
-    if "Manual GMM" in algo_choice:
-        jobs.append(("Manual GMM", k_gmm))
+    with tabs[2]:
+        lls = []
+        for k in range(2, 11):
+            lls.append(ManualGMM.fit_k(X, k)["metrics"]["log_likelihood"])
+        fig = px.line(x=list(range(2, 11)), y=lls, markers=True, title="ManualGMM — Log-Likelihood vs K")
+        st.plotly_chart(fig, use_container_width=True)
 
-    results = runner.run_parallel(X, jobs)
+# ==================== CHẠY MÔ HÌNH ====================
+def run_models(X, rfm, models, k_values):
+    evaluator = UnsupervisedEvaluator(X)
+    results = {}
+    progress = st.progress(0)
 
-    # ==== Hiển thị tâm cụm ====
-    for name, res in results.items():
-        if "centroids" in res:
-            df_c = pd.DataFrame(np.round(res["centroids"], 4),
-                                columns=["Recency", "Frequency", "Monetary"])
+    for i, name in enumerate(models):
+        k = k_values[name]
+        start = time.time()
+
+        if name == "KMeans":
+            result = KMeansNumpy.fit_k(X, k)
+        elif name == "FuzzyCMeans":
+            result = FuzzyCMeans.fit_k(X, k)
         else:
-            df_c = pd.DataFrame(np.round(res["means"], 4),
-                                columns=["Recency", "Frequency", "Monetary"])
-        st.markdown(f"#### 📍 {res['name']} — Trung bình cụm")
-        st.dataframe(df_c, use_container_width=True)
+            result = ManualGMM.fit_k(X, k)
 
-    # ==== Đánh giá ====
-    if len(results) == 2:
-        st.markdown("### 🔍 So sánh mô hình")
-        evalr = UnsupervisedEvaluator()
-        eval_results = evalr.compare_models(
-            X,
-            np.array(results["KMeans"]["labels"]),
-            np.array(results["Manual GMM"]["labels"]),
-            "KMeans", "Manual GMM"
-        )
-        st.json(eval_results)
+        elapsed = round(time.time() - start, 3)
+        labels = result["labels"]
+        metrics = evaluator.evaluate(labels)
+        metrics.update(result["metrics"])
+        metrics["best_k"] = k
+        metrics["time"] = elapsed
+        results[name] = {"labels": labels, "metrics": metrics}
+        progress.progress((i+1)/len(models))
 
-    # ==== Biểu đồ ====
-    visualizer = Visualizer(rfm_scaled)
-    visualizer.render_chart(results, chart_type)
+    return results
 
+# ==================== HIỂN THỊ ====================
+def show_metrics(results):
+    st.markdown("## 📈 Bảng tổng hợp chỉ số")
+    df = pd.DataFrame([{"Model": m, **r["metrics"]} for m, r in results.items()]).set_index("Model")
+    st.dataframe(df.style.format(precision=4))
+    return df
+
+def show_metrics_chart(df, chart_type):
+    st.markdown("## 📊 Biểu đồ so sánh chỉ số")
+    if chart_type == "Heatmap":
+        fig = px.imshow(df.T, text_auto=".2f", aspect="auto")
+        fig.update_layout(width=950, height=600)
+    elif chart_type == "Bar":
+        fig = px.bar(df.T, barmode="group")
+    else:
+        fig = px.line(df.T, markers=True)
+    st.plotly_chart(fig, use_container_width=True)
+
+def show_clusters(results, X, viz_type):
+    st.markdown("## 🎨 Phân cụm trực quan")
+    df = pd.DataFrame(X, columns=["Recency", "Frequency", "Monetary"])
+    tabs = st.tabs(list(results.keys()))
+    for tab, model in zip(tabs, results.keys()):
+        with tab:
+            df["Cluster"] = results[model]["labels"].astype(str)
+            fig = px.scatter_3d(df, x="Recency", y="Frequency", z="Monetary",
+                                color="Cluster", title=f"{model} ({viz_type})") if viz_type=="3D" else \
+                  px.scatter(df, x="Recency", y="Monetary", color="Cluster", title=f"{model} (2D)")
+            st.plotly_chart(fig, use_container_width=True)
+
+# ==================== MAIN ====================
+show_model_curves(X)
+if run_btn:
+    results = run_models(X, rfm, models, k_values)
+    df = show_metrics(results)
+    show_metrics_chart(df, chart_type)
+    show_clusters(results, X, viz_type)
 else:
-    st.info("👈 Chọn thuật toán, điều chỉnh K, rồi nhấn **Chạy mô hình** để bắt đầu.")
+    st.info("👈 Chọn mô hình và nhấn **Chạy mô hình** để bắt đầu.")
