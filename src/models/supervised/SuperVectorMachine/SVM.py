@@ -17,7 +17,6 @@ class SVM_RBF:
         self.support_labels_ = None
 
     def rbf_kernel(self, X1, X2):
-        # ||x - x'||^2 = x·x + x'·x' - 2x·x'
         X1_sq = np.sum(X1 ** 2, axis=1).reshape(-1, 1)
         X2_sq = np.sum(X2 ** 2, axis=1).reshape(1, -1)
         dist_sq = X1_sq + X2_sq - 2 * np.dot(X1, X2.T)
@@ -27,24 +26,18 @@ class SVM_RBF:
         n_samples, _ = X.shape
         y = np.where(y <= 0, -1, 1).astype(float)
 
-        # Tính ma trận kernel K (n_samples × n_samples)
         K = self.rbf_kernel(X, X)
 
-        # Khởi tạo alpha
         self.alpha = np.zeros(n_samples)
         self.b = 0
 
-        # Thuật toán tối ưu đơn giản kiểu SMO (Stochastic)
         for _ in range(self.max_iter):
             alpha_prev = np.copy(self.alpha)
             for i in range(n_samples):
-                # Tính Ei = f(xi) - yi
                 f_i = np.sum(self.alpha * y * K[:, i]) + self.b
                 E_i = f_i - y[i]
 
-                # Kiểm tra điều kiện KKT
                 if (y[i] * E_i < -self.tol and self.alpha[i] < self.C) or (y[i] * E_i > self.tol and self.alpha[i] > 0):
-                    # Chọn ngẫu nhiên j ≠ i
                     j = np.random.randint(0, n_samples)
                     while j == i:
                         j = np.random.randint(0, n_samples)
@@ -54,7 +47,6 @@ class SVM_RBF:
 
                     alpha_i_old, alpha_j_old = self.alpha[i], self.alpha[j]
 
-                    # Tính L, H
                     if y[i] != y[j]:
                         L = max(0, self.alpha[j] - self.alpha[i])
                         H = min(self.C, self.C + self.alpha[j] - self.alpha[i])
@@ -64,19 +56,15 @@ class SVM_RBF:
                     if L == H:
                         continue
 
-                    # Tính η
                     eta = 2 * K[i, j] - K[i, i] - K[j, j]
                     if eta >= 0:
                         continue
 
-                    # Cập nhật alpha_j
                     self.alpha[j] -= y[j] * (E_i - E_j) / eta
                     self.alpha[j] = np.clip(self.alpha[j], L, H)
 
-                    # Cập nhật alpha_i
                     self.alpha[i] += y[i] * y[j] * (alpha_j_old - self.alpha[j])
 
-                    # Cập nhật bias b
                     b1 = (self.b - E_i
                           - y[i] * (self.alpha[i] - alpha_i_old) * K[i, i]
                           - y[j] * (self.alpha[j] - alpha_j_old) * K[i, j])
@@ -91,12 +79,10 @@ class SVM_RBF:
                     else:
                         self.b = (b1 + b2) / 2
 
-            # Dừng nếu alpha thay đổi không đáng kể
             diff = np.linalg.norm(self.alpha - alpha_prev)
             if diff < 1e-5:
                 break
 
-        # Lưu vector hỗ trợ
         idx = self.alpha > 1e-5
         self.support_vectors_ = X[idx]
         self.support_labels_ = y[idx]
@@ -109,7 +95,6 @@ class SVM_RBF:
     def predict(self, X):
         return np.sign(self.project(X))
 
-    
 
 class MultiClassSVM:
     def __init__(self, C=1.0, gamma=0.1, max_iter=1000):
