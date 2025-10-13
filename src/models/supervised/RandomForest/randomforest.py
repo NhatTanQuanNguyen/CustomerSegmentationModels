@@ -179,6 +179,16 @@ class RandomForestCluster:
 
     def predict(self):
         return self.model.predict(self.X_test)
+    
+    def predict_proba(self, X):
+        preds = np.array([tree.predict(X) for tree in self.model.trees])
+        n_samples = X.shape[0]
+        n_classes = len(np.unique(preds))
+        proba = np.zeros((n_samples, n_classes))
+        for i in range(n_samples):
+            counts = np.bincount(preds[:, i].astype(int), minlength=n_classes)
+            proba[i] = counts / np.sum(counts)
+        return proba
 
     def evaluate(self):
         labels = np.concatenate([
@@ -215,10 +225,22 @@ class RandomForestCluster:
         self.evaluate()
         self.feature_importance(feature_cols)
         print("   -> Đánh giá hoàn tất.")
+
+        y_pred = self.model.predict(self.X_test)
+        y_proba = self.predict_proba(self.X_test) 
+
+        metric_names = ["Silhouette", "Davies-Bouldin", "Calinski-Harabasz", "Dunn"]
+        metrics_dict = {name: float(val) for name, val in zip(metric_names, self.metrics_)}
+
+        feature_importance = np.array([
+            [name, float(imp)] for name, imp in zip(feature_cols, self.model.feature_importances_)
+        ], dtype=object)
+
         return {
-            "labels": self.labels_,
-            "metrics": self.metrics_,
-            "result": self.feature_importance_
+            "y_pred": y_pred,
+            "y_proba": y_proba,
+            "metrics": metrics_dict,
+            "feature_importance": feature_importance
         }
 
 class CustomerClusteringPipeline:
@@ -284,10 +306,9 @@ if __name__ == "__main__":
     output = pipeline.run_pipeline()
 
     print("\n>>> KẾT QUẢ RANDOM FOREST <<<")
-    metric_names = ["Silhouette", "Davies-Bouldin", "Calinski-Harabasz", "Dunn"]
-    for name, val in zip(metric_names, output["random_forest"]["metrics"]):
+    for name, val in output["random_forest"]["metrics"].items():
         print(f"{name:20s}: {val:.4f}")
 
     print("\n>>> Trọng số đặc trưng (Feature Importance):")
-    for name, val in output["random_forest"]["result"]:
+    for name, val in output["random_forest"]["feature_importance"]:
         print(f"{name:20s}: {val:.4f}")
