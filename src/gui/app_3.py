@@ -1,4 +1,3 @@
-# src/gui/app_4.py
 import os, sys, numpy as np, pandas as pd, streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
@@ -10,35 +9,22 @@ if REPO_ROOT not in sys.path:
 from src.models.Semi_supervisedLearning.LRFMS_MTS.main import LRFMS_MTS
 from src.preprocesses.noLabel.cleanDataRMFLS import LRFMSPreprocessor
 
-st.set_page_config(page_title="LRFMS + MTS — KMeans (Early Fusion)", layout="wide")
-st.title("LRFMS + MTS — Early Fusion KMeans (tùy chỉnh cao)")
+st.set_page_config(page_title="LRFMS + MTS — Early Fusion KMeans", layout="wide")
+st.title("📊 Dashboard phân cụm khách hàng — LRFMS + MTS (Early Fusion)")
 
 with st.sidebar:
-    src_mode = st.radio("Nguồn dữ liệu", ["Path nội bộ", "Upload Excel"], index=0)
+    src_mode = st.radio("Nguồn dữ liệu", ["Path nội bộ", "Upload Excel"], 0)
     default_path = "data/raw/noLabel/Online Retail.xlsx"
-    file_path = st.text_input("Đường dẫn Excel", value=default_path) if src_mode == "Path nội bộ" else None
-    up_file = st.file_uploader("Chọn file Excel", type=["xlsx", "xls"]) if src_mode != "Path nội bộ" else None
-
-    st.divider()
-    st.subheader("Tham số MTS")
-    periods = st.slider("Số kỳ T", 3, 36, 12)
-    freq = st.selectbox("Granularity", ["M", "W", "Q"], index=0)
-    per_period_z = st.checkbox("Z-score theo từng kỳ (per-column)", value=True)
-
-    st.divider()
-    st.subheader("Tham số LRFMS + Fusion")
-    k = st.slider("Số cụm k", 2, 15, 4)
-    alpha = st.slider("Trọng số LRFMS (0..1)", 0.0, 1.0, 0.5, 0.05)
-    lrfms_scaler = st.selectbox("Scaler LRFMS", ["zscore", "minmax", "none"], index=0)
-    mts_scaler = st.selectbox("Scaler MTS", ["zscore", "minmax", "none"], index=0)
-    with_mean = st.checkbox("Z-score with_mean", value=True)
-    pca_dim = st.selectbox("PCA để trực quan", [0, 2], index=1)
-
-    st.divider()
+    file_path = st.text_input("Đường dẫn Excel", default_path) if src_mode == "Path nội bộ" else None
+    up_file = st.file_uploader("Upload file Excel", type=["xlsx", "xls"]) if src_mode != "Path nội bộ" else None
+    k = st.slider("Số cụm (k)", 2, 15, 4)
+    periods = st.slider("Số kỳ (T)", 3, 36, 12)
+    freq = st.selectbox("Tần suất", ["M", "W", "Q"], 0)
+    alpha = st.slider("Trọng số LRFMS (α)", 0.0, 1.0, 0.5, 0.05)
     seed = st.number_input("Random state", value=42, step=1)
-    run_btn = st.button("Chạy phân cụm", use_container_width=True)
+    run_btn = st.button("🚀 Chạy mô hình", use_container_width=True)
 
-@st.cache_data(show_spinner=True)
+@st.cache_data(show_spinner=False)
 def load_clean_df(src):
     pre = LRFMSPreprocessor(src)
     df = pre.read_data()
@@ -49,86 +35,75 @@ def load_clean_df(src):
     return df
 
 if run_btn:
-    if src_mode == "Path nội bộ":
-        if not os.path.exists(file_path):
-            st.error(f"Không tìm thấy file: {file_path}")
-            st.stop()
-        df_clean = load_clean_df(file_path)
-        src_used = file_path
-    else:
-        if up_file is None:
-            st.error("Hãy upload file Excel.")
-            st.stop()
-        df_clean = load_clean_df(up_file)
-        src_used = "uploaded_file"
+    src_used = file_path if src_mode == "Path nội bộ" else up_file
+    if not src_used:
+        st.error("❌ Chưa chọn file dữ liệu.")
+        st.stop()
+    df_clean = load_clean_df(src_used)
+    model = LRFMS_MTS(k=k, periods=periods, freq=freq, alpha=alpha, random_state=seed)
+    res = model.fit(src_used)
+    st.success("✅ Phân cụm hoàn tất!")
 
-    st.write(f"Số dòng sau làm sạch: {len(df_clean):,}")
-    st.dataframe(df_clean.head(8), use_container_width=True)
-
-    st.subheader("Huấn luyện")
-    with st.spinner("Đang chạy..."):
-        model = LRFMS_MTS(
-            k=k, periods=periods, freq=freq, alpha=alpha,
-            lrfms_scaler=lrfms_scaler, mts_scaler=mts_scaler,
-            per_period_zscore=per_period_z, with_mean=with_mean,
-            random_state=seed, pca_dim=pca_dim
-        )
-        res = model.fit(src_used)
-
-    # ===== Metrics & counts =====
-    metrics = res["metrics"]
+    m = res["metrics"]
     c1, c2, c3 = st.columns(3)
-    c1.metric("Silhouette", f"{metrics['silhouette']:.4f}")
-    c2.metric("Calinski–Harabasz", f"{metrics['calinski_harabasz']:.2f}")
-    c3.metric("Davies–Bouldin", f"{metrics['davies_bouldin']:.4f}")
+    c1.metric("Silhouette", f"{m['silhouette']:.4f}")
+    c2.metric("Calinski–Harabasz", f"{m['calinski_harabasz']:.2f}")
+    c3.metric("Davies–Bouldin", f"{m['davies_bouldin']:.4f}")
 
-    counts = pd.Series(res["labels"]).value_counts().sort_index()
-    st.markdown("**Phân bố cụm**")
-    st.bar_chart(counts)
+    fused_df = pd.DataFrame(res["fused_features"])
+    fused_df["label"] = res["labels"]
+    st.subheader("🧩 Ma trận đặc trưng hợp nhất (LRFMS + MTS)")
+    st.dataframe(fused_df.head(10), use_container_width=True)
+    st.download_button("💾 Tải CSV đặc trưng hợp nhất", fused_df.to_csv(index=False),
+                       "fused_features.csv", mime="text/csv")
 
-    st.download_button(
-        "Tải CSV nhãn cụm",
-        data=pd.DataFrame({"CustomerID": res["customer_ids"], "label": res["labels"]}).to_csv(index=False),
-        file_name="clusters_lrfms_mts.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
+    tab1, tab2, tab3, tab4 = st.tabs(["📈 Song song", "📊 Trung bình cụm", "🕸️ Radar LRFMS", "🔥 Tương quan"])
 
-    # ===== Radar LRFMS per cluster =====
-    st.subheader("Profile LRFMS theo cụm")
-    prof_df, lrfms_cols = model.lrfms_profile(df_clean)
-    st.dataframe(prof_df, use_container_width=True)
+    with tab1:
+        if len(fused_df) > 0:
+            fig = px.parallel_coordinates(fused_df, dimensions=[c for c in fused_df.columns if c != "label"],
+                                          color="label", color_continuous_scale=px.colors.diverging.Tealrose)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Không có dữ liệu để hiển thị.")
 
-    radar = go.Figure()
-    for _, row in prof_df.iterrows():
-        radar.add_trace(go.Scatterpolar(
-            r=row[lrfms_cols].values, theta=lrfms_cols, fill="toself", name=f"Cluster {int(row['label'])}"
-        ))
-    radar.update_layout(title="Radar LRFMS (mean theo cụm)")
-    st.plotly_chart(radar, use_container_width=True)
+    with tab2:
+        if len(fused_df) > 0:
+            mean_df = fused_df.groupby("label").mean().reset_index()
+            fig = go.Figure()
+            for _, r in mean_df.iterrows():
+                fig.add_trace(go.Scatter(y=r.drop("label").values, mode="lines+markers",
+                                         fill="tonexty", name=f"Cluster {int(r['label'])}"))
+            fig.update_layout(template="plotly_dark", title="Giá trị trung bình theo cụm")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Không có dữ liệu hợp lệ.")
 
-    # ===== MTS means per cluster (lines) =====
-    st.subheader("MTS trung bình theo cụm")
-    freq_mean, money_mean, cols = model.mts_means(df_clean)
-    tabs = st.tabs([f"Cluster {i}" for i in freq_mean.index.tolist()])
-    for i, tab in zip(freq_mean.index.tolist(), tabs):
-        with tab:
-            f_fig = go.Figure()
-            f_fig.add_trace(go.Scatter(x=cols, y=freq_mean.loc[i].values, mode="lines+markers", name="Frequency"))
-            f_fig.update_layout(title=f"Frequency theo thời gian — Cluster {i}", xaxis_title="Period", yaxis_title="Count")
-            st.plotly_chart(f_fig, use_container_width=True)
+    with tab3:
+        prof_df, lrfms_cols = model.lrfms_profile(df_clean)
+        if not prof_df.empty:
+            try:
+                max_val = float(np.nanmax(prof_df[lrfms_cols].values))
+                if not np.isfinite(max_val) or max_val == 0:
+                    max_val = 1.0
+            except Exception:
+                max_val = 1.0
+            fig = go.Figure()
+            for _, r in prof_df.iterrows():
+                fig.add_trace(go.Scatterpolar(r=r[lrfms_cols].values, theta=lrfms_cols,
+                                              fill="toself", name=f"Cluster {int(r['label'])}"))
+            fig.update_layout(template="plotly_dark",
+                              polar=dict(radialaxis=dict(visible=True, range=[0, max_val])),
+                              title="Radar LRFMS trung bình theo cụm")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Không thể vẽ biểu đồ Radar.")
 
-            m_fig = go.Figure()
-            m_fig.add_trace(go.Scatter(x=cols, y=money_mean.loc[i].values, mode="lines+markers", name="Monetary"))
-            m_fig.update_layout(title=f"Monetary theo thời gian — Cluster {i}", xaxis_title="Period", yaxis_title="Sum")
-            st.plotly_chart(m_fig, use_container_width=True)
-
-    # ===== PCA scatter of fused features =====
-    if res["features_pca"] is not None:
-        st.subheader("PCA scatter (fused features)")
-        df_p = pd.DataFrame(res["features_pca"], columns=["PC1","PC2"])
-        df_p["label"] = res["labels"]
-        fig = px.scatter(df_p, x="PC1", y="PC2", color="label", title="PCA 2D of fused features", opacity=0.8)
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.caption("Ghi chú: Early fusion (5 LRFMS + 2×T MTS), scaler block riêng, α cân bằng hai khối, KMeans (Euclid).")
+    with tab4:
+        if len(fused_df) > 1:
+            corr = fused_df.drop(columns="label").corr()
+            fig = px.imshow(corr, color_continuous_scale="RdBu_r",
+                            title="Ma trận tương quan giữa các đặc trưng")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Không đủ dữ liệu để vẽ Heatmap.")

@@ -10,12 +10,10 @@ class LRFMSPreprocessor:
         self.lrfms_scaled = None
         self.X = None
 
-    # ======== Đọc dữ liệu ========
     def read_data(self):
         self.df = pd.read_excel(self.file_path)
         return self.df
 
-    # ======== Làm sạch ========
     @staticmethod
     def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
         return df.drop_duplicates(ignore_index=True)
@@ -37,15 +35,13 @@ class LRFMSPreprocessor:
         df[column] = df[column].clip(q_low, q_high)
         return df
 
-    # ======== Chuẩn hóa bằng thư viện ========
     @staticmethod
     def standardize_with_library(df: pd.DataFrame, cols, method="zscore"):
-        df_scaled = df.copy()
         scaler = StandardScaler() if method == "zscore" else MinMaxScaler()
+        df_scaled = df.copy()
         df_scaled[cols] = scaler.fit_transform(df_scaled[cols])
         return df_scaled
 
-    # ======== Tính LRFMS ========
     @staticmethod
     def calculate_lrfms(df: pd.DataFrame) -> pd.DataFrame:
         reference_date = df["InvoiceDate"].max() + pd.Timedelta(days=1)
@@ -56,30 +52,22 @@ class LRFMSPreprocessor:
         })
         agg.columns = ["FirstPurchase", "LastPurchase", "Frequency", "Monetary", "Satisfaction"]
         agg = agg.reset_index()
-
-        # Loyalty = Frequency / số tháng hoạt động
         active_months = ((agg["LastPurchase"] - agg["FirstPurchase"]).dt.days / 30).replace(0, 1)
         agg["Loyalty"] = agg["Frequency"] / active_months
         agg["Recency"] = (reference_date - agg["LastPurchase"]).dt.days
+        return agg[["CustomerID", "Loyalty", "Recency", "Frequency", "Monetary", "Satisfaction"]]
 
-        lrfms = agg[["CustomerID", "Loyalty", "Recency", "Frequency", "Monetary", "Satisfaction"]]
-        return lrfms
-
-    # ======== Quy trình tổng thể ========
     def process(self):
         df = self.read_data()
         df = self.remove_duplicates(df)
         df = self.filter_invalid(df)
         df = self.add_total_amount(df)
         df = self.handle_outliers(df, "TotalAmount")
-
         skew_value = skew(df["TotalAmount"])
         print(f"Skewness of TotalAmount: {skew_value:.2f}")
-
         self.lrfms = self.calculate_lrfms(df)
         self.lrfms_scaled = self.standardize_with_library(
             self.lrfms, ["Loyalty", "Recency", "Frequency", "Monetary", "Satisfaction"], method="zscore"
         )
         self.X = self.lrfms_scaled[["Loyalty", "Recency", "Frequency", "Monetary", "Satisfaction"]].to_numpy()
-
         return self.X, self.lrfms, self.lrfms_scaled

@@ -7,7 +7,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# ==== PATHS ====
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from src.preprocesses.noLabel.cleanData import RFMPreprocessor
@@ -17,7 +16,6 @@ from src.models.unsupervised.GaussianMixtureModel.main import ManualGMM
 from src.models.unsupervised.LatentClassModels.main import LatentClass
 from src.models.unsupervised.HierarchicalClustering.main import HierarchicalWard
 
-# ---- Fix import evaluator cho 2 layout thư mục khác nhau
 try:
     from src.evaluation.unsupervised.unsupervised_eval import UnsupervisedEvaluator  # nếu tách thư mục con
 except ModuleNotFoundError:
