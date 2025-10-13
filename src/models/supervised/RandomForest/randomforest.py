@@ -144,8 +144,6 @@ class RandomForestCluster:
         self.X_test = None
         self.y_train = None
         self.y_test = None
-        self.labels_ = None
-        self.metrics_ = []
         self.feature_importance_ = None
 
     def initialize_model(self):
@@ -154,20 +152,6 @@ class RandomForestCluster:
             max_depth=self.max_depth,
             random_state=self.random_state
         )
-
-    @staticmethod
-    def dunn_index(X, labels):
-        unique_clusters = np.unique(labels)
-        if len(unique_clusters) < 2:
-            return 0.0
-        intra_dists = [np.max(pdist(X[labels == c])) if np.sum(labels == c) > 1 else 0 for c in unique_clusters]
-        inter_dists = [
-            np.min(cdist(X[labels == unique_clusters[i]], X[labels == unique_clusters[j]]))
-            for i in range(len(unique_clusters)) for j in range(i + 1, len(unique_clusters))
-        ]
-        max_intra = np.max(intra_dists)
-        min_inter = np.min(inter_dists)
-        return float(min_inter / max_intra) if max_intra > 0 else 0.0
 
     def load_data(self, X, y):
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
@@ -190,25 +174,6 @@ class RandomForestCluster:
             proba[i] = counts / np.sum(counts)
         return proba
 
-    def evaluate(self):
-        labels = np.concatenate([
-            self.model.predict(self.X_train),
-            self.model.predict(self.X_test)
-        ])
-        X_all = np.concatenate([self.X_train, self.X_test])
-
-        if len(np.unique(labels)) < 2:
-            self.metrics_ = np.array([0.0, 0.0, 0.0, 0.0])
-        else:
-            self.metrics_ = np.array([
-                silhouette_score(X_all, labels),
-                davies_bouldin_score(X_all, labels),
-                calinski_harabasz_score(X_all, labels),
-                self.dunn_index(X_all, labels)
-            ])
-        self.labels_ = np.array(labels)
-        return self.metrics_, self.labels_
-
     def feature_importance(self, feature_cols):
         self.feature_importance_ = np.array([
             (name, float(imp)) for name, imp in zip(feature_cols, self.model.feature_importances_)
@@ -216,21 +181,13 @@ class RandomForestCluster:
         return self.feature_importance_
 
     def run(self, X, y, feature_cols):
-        print(">>> BƯỚC 3: Tách train/test và huấn luyện Random Forest...")
         self.load_data(X, y)
         self.initialize_model()
         self.fit()
-        print("   -> Huấn luyện hoàn tất.")
-        print(">>> BƯỚC 4: Đánh giá mô hình...")
-        self.evaluate()
         self.feature_importance(feature_cols)
-        print("   -> Đánh giá hoàn tất.")
 
         y_pred = self.model.predict(self.X_test)
         y_proba = self.predict_proba(self.X_test) 
-
-        metric_names = ["Silhouette", "Davies-Bouldin", "Calinski-Harabasz", "Dunn"]
-        metrics_dict = {name: float(val) for name, val in zip(metric_names, self.metrics_)}
 
         feature_importance = np.array([
             [name, float(imp)] for name, imp in zip(feature_cols, self.model.feature_importances_)
@@ -239,7 +196,6 @@ class RandomForestCluster:
         return {
             "y_pred": y_pred,
             "y_proba": y_proba,
-            "metrics": metrics_dict,
             "feature_importance": feature_importance
         }
 
@@ -260,18 +216,14 @@ class CustomerClusteringPipeline:
         self.rf_output = None
 
     def load_rfm_data(self):
-        print(">>> BƯỚC 1: Đang xử lý dữ liệu RFM...")
         preprocessor = RFMPreprocessor(self.file_path)
         X_scaled, rfm_original, _ = preprocessor.process()
         self.X = X_scaled
-        print("   -> Hoàn tất xử lý RFM.")
         return self.X
 
     def run_kmeans(self):
-        print(">>> BƯỚC 2: Đang phân cụm K-Means...")
         kmeans_out = KMeansNumpy.fit_k(self.X, self.kmeans_k, random_state=self.random_state)
         self.y_kmeans = kmeans_out["labels"]
-        print(f"   -> K-Means hoàn tất. ({self.kmeans_k} cụm)")
         return kmeans_out
 
     def run_random_forest(self):
@@ -292,4 +244,3 @@ class CustomerClusteringPipeline:
             "kmeans": kmeans_res,
             "random_forest": rf_res
         }
-
