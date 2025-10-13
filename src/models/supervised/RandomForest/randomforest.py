@@ -293,22 +293,3 @@ class CustomerClusteringPipeline:
             "random_forest": rf_res
         }
 
-if __name__ == "__main__":
-    file_path = "data/raw/noLabel/Online Retail.xlsx"
-
-    pipeline = CustomerClusteringPipeline(
-        file_path=file_path,
-        kmeans_k=4,
-        rf_n_estimators=300,
-        rf_test_size=0.3
-    )
-
-    output = pipeline.run_pipeline()
-
-    print("\n>>> KẾT QUẢ RANDOM FOREST <<<")
-    for name, val in output["random_forest"]["metrics"].items():
-        print(f"{name:20s}: {val:.4f}")
-
-    print("\n>>> Trọng số đặc trưng (Feature Importance):")
-    for name, val in output["random_forest"]["feature_importance"]:
-        print(f"{name:20s}: {val:.4f}")
