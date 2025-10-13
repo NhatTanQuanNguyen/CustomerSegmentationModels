@@ -111,20 +111,6 @@ streamlit run src/gui/app_3.py
 
 ---
 
-## 🔄 Sơ đồ sử dụng
-
-```mermaid
-flowchart TD
-    A[📂 Dữ liệu đầu vào (Transaction Data)] --> B[🧹 Tiền xử lý dữ liệu (RFM / LRFMS / MTS)]
-    B --> C[🤖 Phân cụm không giám sát: KMeans / FCM / GMM / LCM / Hierarchical]
-    C --> D[📈 Đánh giá chất lượng cụm: Silhouette, DBI, CHI, Dunn]
-    D --> E[🏆 Chọn mô hình tốt nhất]
-    E --> F[🎓 Huấn luyện mô hình giám sát: SVM, RandomForest]
-    F --> G[📊 Trực quan hóa kết quả & dự đoán khách hàng mới]
-    G --> H[💡 Ứng dụng trong marketing và phân tích hành vi]
-```
-
----
 
 ## 🧠 Ý nghĩa đề tài
 
