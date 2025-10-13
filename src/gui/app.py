@@ -14,10 +14,10 @@ from src.models.unsupervised.Kmean.main import KMeansNumpy
 from src.models.unsupervised.FuzzyCMean.main import FuzzyCMeans
 from src.models.unsupervised.GaussianMixtureModel.main import ManualGMM
 from src.models.unsupervised.LatentClassModels.main import LatentClass
-from src.models.unsupervised.HierarchicalClustering.main import HierarchicalWard
+from src.models.unsupervised.HierarchicalClustering.main import HierarchicalWardManual
 
 try:
-    from src.evaluation.unsupervised.unsupervised_eval import UnsupervisedEvaluator  # nếu tách thư mục con
+    from src.evaluation.unsupervised_eval import UnsupervisedEvaluator  # nếu tách thư mục con
 except ModuleNotFoundError:
     from src.evaluation.unsupervised_eval import UnsupervisedEvaluator               # nếu để phẳng
 
@@ -37,10 +37,10 @@ st.success(f"Dữ liệu RFM sẵn sàng: {X.shape[0]} KH, {X.shape[1]} đặc t
 
 st.sidebar.header("Cấu hình mô hình")
 
-ALL_MODELS = ["KMeans", "FuzzyCMeans", "ManualGMM", "LatentClass", "HierarchicalWard"]
+ALL_MODELS = ["KMeans", "FuzzyCMeans", "ManualGMM", "LatentClass", "HierarchicalWardManual"]
 models = st.sidebar.multiselect("Chọn mô hình", ALL_MODELS, default=ALL_MODELS)
 
-k_values = {m: st.sidebar.slider(f"{m} — K", 2, 15, 3) for m in models if m != "HierarchicalWard"}
+k_values = {m: st.sidebar.slider(f"{m} — K", 2, 15, 3) for m in models if m != "HierarchicalWardManual"}
 
 st.sidebar.subheader("Hierarchical (Ward)")
 auto_k_hier = st.sidebar.checkbox("Tự đề xuất K (largest jump)", value=True)
@@ -79,9 +79,9 @@ def lca_curve_cached(X):
 
 @st.cache_data(show_spinner=False)
 def hier_curves_cached(X):
-    d = HierarchicalWard.dendrogram_coords(X, standardize=True, truncate_mode=None, p=30)
-    ks, sses = HierarchicalWard.sse_vs_k(X, k_min=2, k_max=11, standardize=True)
-    k_auto, cut_h, _, _ = HierarchicalWard.suggest_k_by_jump(X, standardize=True)
+    d = HierarchicalWardManual.dendrogram_coords(X, standardize=True, truncate_mode=None, p=30)
+    ks, sses = HierarchicalWardManual.sse_vs_k(X, k_min=2, k_max=11, standardize=True)
+    k_auto, cut_h, _, _ = HierarchicalWardManual.suggest_k_by_jump(X, standardize=True)
     return d, (ks, sses), (k_auto, cut_h)
 
 def plotly_dendrogram_from_scipy(d):
@@ -98,7 +98,7 @@ def plotly_dendrogram_from_scipy(d):
 
 def show_model_curves(X):
     st.markdown("### Biểu đồ tham khảo tìm K tối ưu (tùy mô hình)")
-    tabs = st.tabs(["KMeans", "FuzzyCMeans", "ManualGMM", "LatentClass", "HierarchicalWard"])
+    tabs = st.tabs(["KMeans", "FuzzyCMeans", "ManualGMM", "LatentClass", "HierarchicalWardManual"])
 
     with tabs[0]:
         ks, sse = kmeans_curve_cached(X)
@@ -145,20 +145,20 @@ def _run_one_model(name, X, k, hier_cfg):
         out = ManualGMM.fit_k(X, k)  # AIC/BIC ở trong model
     elif name == "LatentClass":
         out = LatentClass.fit_k(X, k, q=5, max_iter=200, tol=1e-6, random_state=42)
-    elif name == "HierarchicalWard":
+    elif name == "HierarchicalWardManual":
         cut_mode, auto_k, cut_height = hier_cfg
         if cut_mode == "Theo ngưỡng khoảng cách":
             if auto_k:
-                k_auto, cut_h, _, _ = HierarchicalWard.suggest_k_by_jump(X, standardize=True)
-                out = HierarchicalWard.fit_distance(X, cut_h, standardize=True)
+                k_auto, cut_h, _, _ = HierarchicalWardManual.suggest_k_by_jump(X, standardize=True)
+                out = HierarchicalWardManual.fit_distance(X, cut_h, standardize=True)
                 out["metrics"]["k_auto"] = int(k_auto)
             else:
-                out = HierarchicalWard.fit_distance(X, cut_height, standardize=True)
+                out = HierarchicalWardManual.fit_distance(X, cut_height, standardize=True)
         else:
             if auto_k:
-                k_auto, _, _, _ = HierarchicalWard.suggest_k_by_jump(X, standardize=True)
+                k_auto, _, _, _ = HierarchicalWardManual.suggest_k_by_jump(X, standardize=True)
                 k = int(max(2, k_auto))
-            out = HierarchicalWard.fit_k(X, k, standardize=True)
+            out = HierarchicalWardManual.fit_k(X, k, standardize=True)
     else:
         out = None
     elapsed = round(time.time() - start, 3)
@@ -171,7 +171,7 @@ def run_models(X, rfm, models, k_values):
 
     tasks = []
     for m in models:
-        if m == "HierarchicalWard":
+        if m == "HierarchicalWardManual":
             tasks.append((m, X, k_values.get(m, 3), (hier_cut_mode, auto_k_hier, cut_height_manual)))
         else:
             tasks.append((m, X, k_values.get(m, 3), None))
@@ -228,7 +228,7 @@ def show_clusters(results, X, viz_type):
             labels = results[model]["labels"].astype(str)
             df_plot = df.copy(); df_plot["Cluster"] = labels
 
-            if model == "HierarchicalWard":
+            if model == "HierarchicalWardManual":
                 st.markdown("**Dendrogram (Ward)**")
                 d, _, (k_auto, cut_h) = hier_curves_cached(X)
                 fig_d = plotly_dendrogram_from_scipy(d)
