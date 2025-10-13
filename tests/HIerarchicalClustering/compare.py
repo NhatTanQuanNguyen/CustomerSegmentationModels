@@ -10,7 +10,7 @@ from scipy.spatial.distance import pdist, squareform
 from scipy.optimize import linear_sum_assignment
 
 from src.preprocesses.noLabel.cleanData import RFMPreprocessor
-from src.models.unsupervised.HierarchicalClustering.main import HierarchicalWard
+from src.models.unsupervised.HierarchicalClustering.main import HierarchicalWardManual
 from src.utils.export_compare_results import export_compare_results
 
 # ====== Hàm tính Dunn Index ======
@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     # === Code tay (class HierarchicalWard) ===
     # Đã sửa: Chạy trên dữ liệu đã chuẩn hóa (nội bộ class)
-    manual = HierarchicalWard.fit_k(X, k=k, standardize=True)
+    manual = HierarchicalWardManual.fit_k(X, k=k, standardize=True)
     labels_manual = manual["labels"]
     sse_manual = manual["metrics"]["sse"]
 
