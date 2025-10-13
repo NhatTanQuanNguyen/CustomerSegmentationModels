@@ -52,7 +52,6 @@ Dự án kết hợp:
 5. **Huấn luyện mô hình giám sát (Supervised Learning)**  
    Dùng nhãn cụm tối ưu làm ground truth để huấn luyện:
    - SVM_RBF  
-   - Decision Tree  
    - Random Forest  
 
 6. **Dự đoán & Trực quan hóa**  
