@@ -52,7 +52,6 @@ Dự án kết hợp:
 5. **Huấn luyện mô hình giám sát (Supervised Learning)**  
    Dùng nhãn cụm tối ưu làm ground truth để huấn luyện:
    - SVM_RBF  
-   - Decision Tree  
    - Random Forest  
 
 6. **Dự đoán & Trực quan hóa**  
@@ -98,7 +97,6 @@ Sau khi xác định cụm tối ưu, kết quả phân cụm sẽ được dùn
 
 ### Mô hình sử dụng:
 - **SVM_RBF**: phân tách cụm phức tạp, phi tuyến tính  
-- **DecisionTree**: dễ giải thích, trực quan  
 - **RandomForestCluster**: tổng hợp nhiều cây quyết định, tăng độ chính xác
 
 Mục tiêu là dự đoán cụm khách hàng mới dựa trên hành vi giao dịch.
@@ -109,8 +107,6 @@ Mục tiêu là dự đoán cụm khách hàng mới dựa trên hành vi giao d
 
 - **Chuẩn hóa dữ liệu (StandardScaler)** tránh thuộc tính chi phối.
 - **Loại nhiễu bằng PCA hoặc Feature Selection** giảm chiều không quan trọng.
-- **Khởi tạo centroid thông minh (k-means++)** tăng tốc hội tụ.
-- **Chạy song song (multi-threaded)** bằng ThreadPool để tối ưu tốc độ.
 
 ---
 
@@ -167,6 +163,6 @@ flowchart TD
     B --> C[🤖 Phân cụm không giám sát: KMeans / FCM / GMM / LCM / Hierarchical]
     C --> D[📈 Đánh giá chất lượng cụm: Silhouette, DBI, CHI, Dunn]
     D --> E[🏆 Chọn mô hình tốt nhất]
-    E --> F[🎓 Huấn luyện mô hình giám sát: SVM, DecisionTree, RandomForest]
+    E --> F[🎓 Huấn luyện mô hình giám sát: SVM, RandomForest]
     F --> G[📊 Trực quan hóa kết quả & dự đoán khách hàng mới]
     G --> H[💡 Ứng dụng trong marketing và phân tích hành vi]
