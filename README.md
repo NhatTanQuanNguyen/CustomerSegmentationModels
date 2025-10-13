@@ -16,16 +16,14 @@ Mục tiêu là nhóm khách hàng dựa trên:
 - Và các yếu tố mở rộng khác như Length, Score (LRFMS, MTS)
 
 Dự án kết hợp:
-- Tiền xử lý và chuẩn hóa dữ liệu đầu vào,
-- Ứng dụng nhiều thuật toán phân cụm không giám sát (KMeans, FCM, GMM, LCM, Hierarchical...),
-- Đánh giá chất lượng phân cụm bằng các chỉ số nội tại,
+- Tiền xử lý và chuẩn hóa dữ liệu đầu vào,  
+- Ứng dụng nhiều thuật toán phân cụm không giám sát (KMeans, FCM, GMM, LCM, Hierarchical...),  
+- Đánh giá chất lượng phân cụm bằng các chỉ số nội tại,  
 - Sau đó sử dụng nhãn cụm tốt nhất để huấn luyện mô hình giám sát.
 
 ---
 
 ## 🔄 2. Pipeline tổng thể
-
-### Quy trình hoạt động
 
 1. **Tiền xử lý dữ liệu (Preprocessing)**  
    Làm sạch, chuẩn hóa và tính các chỉ số RFM / LRFMS / MTS.  
@@ -68,58 +66,15 @@ Dự án kết hợp:
 
 ### 🤖 B. Các thuật toán phân cụm không giám sát
 
-| Thuật toán | Đặc điểm nổi bật |
-|-------------|------------------|
-| **KMeans (NumPy)** | Tự cài đặt thủ công, tốc độ cao, dễ kiểm chứng |
-| **Fuzzy C-Means (FCM)** | Mỗi điểm có thể thuộc nhiều cụm, tăng tính linh hoạt |
-| **Gaussian Mixture Model (GMM)** | Dựa trên phân phối chuẩn hỗn hợp, huấn luyện bằng EM |
-| **Latent Class Model (LCM)** | Mô hình phân phối xác suất tiềm ẩn |
-| **Hierarchical Clustering (Ward)** | Không cần chọn số cụm trước, tạo cấu trúc cây phân cấp |
+- **KMeans (NumPy):** Tự cài đặt thủ công, tốc độ cao, dễ kiểm chứng.  
+- **Fuzzy C-Means (FCM):** Mỗi điểm có thể thuộc nhiều cụm, tăng tính linh hoạt.  
+- **Gaussian Mixture Model (GMM):** Dựa trên phân phối chuẩn hỗn hợp, huấn luyện bằng EM.  
+- **Latent Class Model (LCM):** Mô hình phân phối xác suất tiềm ẩn.  
+- **Hierarchical Clustering (Ward):** Không cần chọn số cụm trước, tạo cấu trúc cây phân cấp.
 
 ---
 
-## 🧮 4. Các chỉ số đánh giá mô hình
-
-Dùng module `UnsupervisedEvaluator` để tính toán:
-
-| Chỉ số | Ý nghĩa | Đánh giá tốt |
-|--------|----------|---------------|
-| **Silhouette Score** | Đo độ tách biệt giữa các cụm | Càng gần 1 càng tốt |
-| **Davies-Bouldin Index (DBI)** | Đo độ tương đồng giữa các cụm | Càng thấp càng tốt |
-| **Calinski-Harabasz Index (CHI)** | Độ phân tán giữa cụm | Càng cao càng tốt |
-| **Dunn Index** | Tỷ lệ giữa khoảng cách cụm và đường kính cụm | Càng cao càng tốt |
-
----
-
-## 📘 5. Giai đoạn học giám sát (Supervised Phase)
-
-Sau khi xác định cụm tối ưu, kết quả phân cụm sẽ được dùng làm nhãn để huấn luyện mô hình giám sát.
-
-### Mô hình sử dụng:
-- **SVM_RBF**: phân tách cụm phức tạp, phi tuyến tính  
-- **RandomForestCluster**: tổng hợp nhiều cây quyết định, tăng độ chính xác
-
-Mục tiêu là dự đoán cụm khách hàng mới dựa trên hành vi giao dịch.
-
----
-
-## 🧠 6. Kỹ thuật xử lý đầu vào cho KMeans
-
-- **Chuẩn hóa dữ liệu (StandardScaler)** tránh thuộc tính chi phối.
-- **Loại nhiễu bằng PCA hoặc Feature Selection** giảm chiều không quan trọng.
-
----
-
-## 🧪 7. Kết quả & Đánh giá
-
-- Thực hiện đánh giá 5 thuật toán trên cùng một tập dữ liệu.
-- So sánh theo Silhouette, DBI, CHI, Dunn.
-- Chọn mô hình tối ưu nhất làm nhãn huấn luyện.
-- Trực quan kết quả bằng biểu đồ scatter, heatmap, radar và biểu đồ 3D.
-
----
-
-## 💻 8. Cách triển khai & chạy
+## 💻 4. Cách triển khai & chạy
 
 ### Bước 1 — Cài môi trường
 
@@ -129,14 +84,11 @@ cd ElevatorModelProject
 python -m venv venv
 venv\Scripts\activate        # (Windows)
 # hoặc
-source venv/bin/activate     # (Linux / Mac)
+source venv/bin/activate       # (Linux / Mac)
 pip install -r requirements.txt
-```bash
+```
 
 ### Bước 2 — Chạy ứng dụng
-
-
-```bash
 
 Dự án có **3 ứng dụng Streamlit chính**:
 
@@ -155,7 +107,7 @@ Chạy bằng lệnh:
 streamlit run src/gui/app.py
 streamlit run src/gui/app_2.py
 streamlit run src/gui/app_3.py
-
+```
 
 ---
 
@@ -170,3 +122,33 @@ flowchart TD
     E --> F[🎓 Huấn luyện mô hình giám sát: SVM, RandomForest]
     F --> G[📊 Trực quan hóa kết quả & dự đoán khách hàng mới]
     G --> H[💡 Ứng dụng trong marketing và phân tích hành vi]
+```
+
+---
+
+## 🧠 Ý nghĩa đề tài
+
+Dự án được xây dựng với mục tiêu tạo ra một **pipeline hoàn chỉnh** kết nối giữa:
+- Học **không giám sát (unsupervised learning)** để phát hiện cấu trúc ẩn trong dữ liệu khách hàng.  
+- Học **có giám sát (supervised learning)** để dự đoán nhóm khách hàng mới dựa trên cụm đã học.  
+
+Các điểm nổi bật:
+- Giúp **tự động lựa chọn thuật toán phân cụm tối ưu nhất** bằng các chỉ số nội tại (Silhouette, DBI, CHI, Dunn).  
+- Hỗ trợ **doanh nghiệp và tổ chức** phân nhóm khách hàng, xác định nhóm tiềm năng hoặc rủi ro.  
+- Kết hợp **trực quan hóa dữ liệu** để người dùng phi kỹ thuật vẫn có thể hiểu kết quả dễ dàng.  
+
+Ứng dụng trong:
+- Phân loại khách hàng theo giá trị & hành vi.  
+- Gợi ý chiến lược marketing phù hợp từng nhóm.  
+- Phân tích hành vi học viên, giao dịch tài chính, hoặc sản phẩm thương mại điện tử.
+
+---
+
+Công nghệ sử dụng:
+- Python (NumPy, Pandas, Scikit-learn)  
+- Streamlit (xây dựng giao diện trực quan)  
+- Plotly / Matplotlib (vẽ biểu đồ)  
+- Các thuật toán tự cài đặt: KMeans, FCM, GMM, LCM, Hierarchical  
+
+---
+
