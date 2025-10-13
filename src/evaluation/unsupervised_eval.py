@@ -3,32 +3,14 @@ from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_har
 from scipy.spatial.distance import cdist
 
 class UnsupervisedEvaluator:
-    """
-    Bộ công cụ đánh giá mô hình không giám sát (KMeans, GMM, FCM,...)
-    Cho phép tính tất cả các chỉ số nội tại (internal metrics) + so sánh mô hình.
-    """
 
     def __init__(self, X):
         self.X = X
 
-    # ============================================================
-    # 🔹 ĐÁNH GIÁ MỘT MÔ HÌNH
-    # ============================================================
     def evaluate(self, labels):
-        """Trả về tất cả chỉ số nội tại cho một mô hình"""
         return self._internal_metrics(labels)
 
-    # ============================================================
-    # 🔹 TÍNH CÁC CHỈ SỐ NỘI TẠI
-    # ============================================================
     def _internal_metrics(self, labels):
-        """
-        Tính các chỉ số nội tại:
-        - Silhouette Score
-        - Davies-Bouldin Index
-        - Calinski-Harabasz Index
-        - Dunn Index
-        """
         X = self.X
         unique_labels = np.unique(labels)
 
@@ -52,9 +34,6 @@ class UnsupervisedEvaluator:
             "dunn": dunn
         }
 
-    # ============================================================
-    # 🔹 DUNN INDEX
-    # ============================================================
     @staticmethod
     def _dunn_index(X, labels):
         unique_clusters = np.unique(labels)
@@ -79,9 +58,6 @@ class UnsupervisedEvaluator:
 
         return np.min(inter_dists) / np.max(intra_dists)
 
-    # ============================================================
-    # 🔹 SO SÁNH HAI MÔ HÌNH
-    # ============================================================
     def compare_models(self, labels_a, labels_b, name_a="Model A", name_b="Model B"):
         """So sánh hai mô hình không giám sát qua độ tương đồng nhãn + metrics"""
         match_ratio = (labels_a == labels_b).mean()

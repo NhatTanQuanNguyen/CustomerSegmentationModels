@@ -4,13 +4,6 @@ from scipy.stats import skew
 
 
 class RFMPreprocessor:
-    """
-    Xử lý dữ liệu bán hàng thành ma trận RFM (Recency, Frequency, Monetary).
-    Trả về:
-        - X: numpy.ndarray, ma trận chuẩn hóa (để train)
-        - rfm: numpy.ndarray, ma trận RFM gốc (CustomerID, Recency, Frequency, Monetary)
-        - rfm_scaled: numpy.ndarray, ma trận RFM đã chuẩn hóa (CustomerID, Recency, Frequency, Monetary)
-    """
 
     def __init__(self, file_path: str):
         self.file_path = file_path

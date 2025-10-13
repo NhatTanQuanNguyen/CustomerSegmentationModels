@@ -23,12 +23,10 @@ try:
 except ModuleNotFoundError:
     from src.evaluation.unsupervised_eval import UnsupervisedEvaluator               # nếu để phẳng
 
-# ==================== APP HEADER ====================
 st.set_page_config(page_title="So sánh mô hình không giám sát", layout="wide")
-st.title("🧠 So sánh & đánh giá mô hình không giám sát")
+st.title("So sánh & đánh giá mô hình không giám sát")
 st.markdown("---")
 
-# ==================== DATA ====================
 @st.cache_resource(show_spinner=False)
 def load_rfm_data():
     pre = RFMPreprocessor("data/raw/noLabel/Online Retail.xlsx")
@@ -39,16 +37,13 @@ with st.spinner("Đang xử lý dữ liệu..."):
     X, rfm = load_rfm_data()
 st.success(f"Dữ liệu RFM sẵn sàng: {X.shape[0]} KH, {X.shape[1]} đặc trưng")
 
-# ==================== SIDEBAR ====================
 st.sidebar.header("Cấu hình mô hình")
 
 ALL_MODELS = ["KMeans", "FuzzyCMeans", "ManualGMM", "LatentClass", "HierarchicalWard"]
 models = st.sidebar.multiselect("Chọn mô hình", ALL_MODELS, default=ALL_MODELS)
 
-# K cho những mô hình cần K
 k_values = {m: st.sidebar.slider(f"{m} — K", 2, 15, 3) for m in models if m != "HierarchicalWard"}
 
-# Hierarchical: cách cắt & auto-K
 st.sidebar.subheader("Hierarchical (Ward)")
 auto_k_hier = st.sidebar.checkbox("Tự đề xuất K (largest jump)", value=True)
 hier_cut_mode = st.sidebar.radio("Cách cắt", ["Theo K", "Theo ngưỡng khoảng cách"], index=0)
@@ -58,7 +53,6 @@ viz_type = st.sidebar.radio("Hiển thị cụm", ["3D", "2D"], index=0)
 chart_type = st.sidebar.selectbox("Biểu đồ chỉ số", ["Heatmap", "Bar", "Line"], index=0)
 run_btn = st.sidebar.button("Chạy mô hình")
 
-# ==================== CACHE CURVES (k=2..10) ====================
 @st.cache_data(show_spinner=False)
 def kmeans_curve_cached(X):
     ks = list(range(2, 11))
@@ -92,7 +86,6 @@ def hier_curves_cached(X):
     k_auto, cut_h, _, _ = HierarchicalWard.suggest_k_by_jump(X, standardize=True)
     return d, (ks, sses), (k_auto, cut_h)
 
-# ==================== VẼ DENDROGRAM ====================
 def plotly_dendrogram_from_scipy(d):
     icoord, dcoord = d["icoord"], d["dcoord"]
     traces = [go.Scatter(x=xs, y=ys, mode="lines", line=dict(width=1)) for xs, ys in zip(icoord, dcoord)]
@@ -105,7 +98,6 @@ def plotly_dendrogram_from_scipy(d):
     )
     return fig
 
-# ==================== BIỂU ĐỒ THAM KHẢO K ====================
 def show_model_curves(X):
     st.markdown("### Biểu đồ tham khảo tìm K tối ưu (tùy mô hình)")
     tabs = st.tabs(["KMeans", "FuzzyCMeans", "ManualGMM", "LatentClass", "HierarchicalWard"])
@@ -145,7 +137,6 @@ def show_model_curves(X):
         fig2.update_xaxes(title="K"); fig2.update_yaxes(title="SSE")
         st.plotly_chart(fig2, use_container_width=True)
 
-# ==================== CHẠY 1 MÔ HÌNH (cho ThreadPool) ====================
 def _run_one_model(name, X, k, hier_cfg):
     start = time.time()
     if name == "KMeans":
@@ -175,7 +166,6 @@ def _run_one_model(name, X, k, hier_cfg):
     elapsed = round(time.time() - start, 3)
     return name, out, elapsed
 
-# ==================== CHẠY SONG SONG ====================
 def run_models(X, rfm, models, k_values):
     evaluator = UnsupervisedEvaluator(X)
     results = {}
@@ -204,7 +194,6 @@ def run_models(X, rfm, models, k_values):
 
     return results
 
-# ==================== HIỂN THỊ ====================
 def show_metrics(results):
     st.markdown("### Bảng tổng hợp chỉ số")
     rows = []
@@ -262,7 +251,6 @@ def show_clusters(results, X, viz_type):
                                  color="Cluster", title=f"{model} (2D)")
             st.plotly_chart(fig, use_container_width=True)
 
-# ==================== MAIN ====================
 show_model_curves(X)
 if run_btn:
     results = run_models(X, rfm, models, k_values)
