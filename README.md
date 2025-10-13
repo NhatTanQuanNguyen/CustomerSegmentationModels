@@ -131,8 +131,12 @@ venv\Scripts\activate        # (Windows)
 # hoặc
 source venv/bin/activate     # (Linux / Mac)
 pip install -r requirements.txt
+```bash
 
 ### Bước 2 — Chạy ứng dụng
+
+
+```bash
 
 Dự án có **3 ứng dụng Streamlit chính**:
 
