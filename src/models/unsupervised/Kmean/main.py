@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.spatial.distance import cdist
 
 class KMeansNumpy:
     def __init__(self, n_clusters=3, max_iters=100, random_state=42):
