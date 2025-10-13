@@ -1,9 +1,5 @@
-import pandas as pd
 import numpy as np
-from scipy.spatial.distance import pdist, cdist
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
-from joblib import Parallel, delayed
 
 from collections import Counter
 from src.models.unsupervised.Kmean.main import KMeansNumpy
