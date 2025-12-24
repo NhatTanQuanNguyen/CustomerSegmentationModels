@@ -14,6 +14,7 @@ from src.models.unsupervised.Kmean.main import KMeansNumpy
 from src.models.supervised.SuperVectorMachine.main import MultiClassSVM
 from src.models.supervised.RandomForest.main import RandomForestManual
 from src.evaluation.supervised_evel import evaluate_supervised
+from src.utils.profiler import profile_block
 
 st.set_page_config(page_title="So sánh mô hình tay", layout="wide")
 st.title("So sánh SVM và Random Forest")
@@ -79,28 +80,77 @@ if run_btn:
     results = {}
 
     if model_choice in ["SVM RBF tay", "So sánh cả hai"]:
-        model_svm = MultiClassSVM(C=float(C), gamma=float(gamma), max_iter=500, calib_split=float(calib_split), random_state=int(rs))
-        results["SVM RBF"] = evaluate_supervised(model_svm, X_tr, y_tr, X_te, y_te, fit=True)
+        model_svm = MultiClassSVM(
+            C=float(C),
+            gamma=float(gamma),
+            max_iter=500,
+            calib_split=float(calib_split),
+            random_state=int(rs)
+        )
+
+        with profile_block() as prof:
+            model_svm.fit(X_tr, y_tr)
+            train_stats = prof()
+
+        metrics = evaluate_supervised(
+            model_svm, X_tr, y_tr, X_te, y_te, fit=False
+        )
+
+        metrics.update(train_stats)
+        results["SVM RBF"] = metrics
 
     if model_choice in ["Random Forest tay", "So sánh cả hai"]:
-        model_rf = RandomForestManual(n_estimators=int(n_estimators), max_depth=None if max_depth <= 0 else int(max_depth), random_state=int(rs))
-        results["Random Forest"] = evaluate_supervised(model_rf, X_tr, y_tr, X_te, y_te, fit=True)
+        model_rf = RandomForestManual(
+            n_estimators=int(n_estimators),
+            max_depth=None if max_depth <= 0 else int(max_depth),
+            random_state=int(rs)
+        )
+
+        with profile_block() as prof:
+            model_rf.fit(X_tr, y_tr)
+            train_stats = prof()
+
+        metrics = evaluate_supervised(
+            model_rf, X_tr, y_tr, X_te, y_te, fit=False
+        )
+
+        metrics.update(train_stats)
+        results["Random Forest"] = metrics
+
 
     for name, metrics in results.items():
         st.subheader(name)
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Accuracy", f"{metrics['accuracy']:.4f}")
         c2.metric("Precision (w)", f"{metrics['precision_weighted']:.4f}")
         c3.metric("Recall (w)", f"{metrics['recall_weighted']:.4f}")
         c4.metric("F1 (w)", f"{metrics['f1_weighted']:.4f}")
+        c5.metric("Time (s)", f"{metrics['train_time_sec']:.3f}")
+        c6.metric("RAM (MB)", f"{metrics['memory_mb']:.2f}")
         st.plotly_chart(plot_cm(metrics["confusion_matrix"], np.unique(y), normalize_cm), use_container_width=True)
 
     if len(results) == 2:
         df_compare = pd.DataFrame({
             "Model": list(results.keys()),
             "Accuracy": [results[m]["accuracy"] for m in results],
-            "F1_weighted": [results[m]["f1_weighted"] for m in results]
+            "F1_weighted": [results[m]["f1_weighted"] for m in results],
+            "Time (s)": [results[m]["train_time_sec"] for m in results],
+            "RAM (MB)": [results[m]["memory_mb"] for m in results],
         })
-        fig = px.bar(df_compare, x="Model", y=["Accuracy", "F1_weighted"], barmode="group", text_auto=True)
-        fig.update_layout(title="So sánh chỉ số giữa hai mô hình", yaxis_title="Giá trị")
+
+        fig = px.bar(
+            df_compare,
+            x="Model",
+            y=["Accuracy", "F1_weighted", "Time (s)", "RAM (MB)"],
+            barmode="group",
+            text_auto=".3f"
+        )
+
+        fig.update_layout(
+            yaxis_title="Giá trị",
+            legend_title="Chỉ số",
+            bargap=0.25
+        )
+
         st.plotly_chart(fig, use_container_width=True)
+

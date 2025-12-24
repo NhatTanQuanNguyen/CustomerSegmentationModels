@@ -150,6 +150,43 @@ def plotly_dendrogram_from_scipy(d):
     )
     return fig
 
+def show_model_curves(X):
+    st.markdown("### Biểu đồ tham khảo tìm K tối ưu (tùy mô hình)")
+    tabs = st.tabs(["KMeans", "FuzzyCMeans", "ManualGMM", "LatentClass", "HierarchicalWardManual"])
+    with tabs[0]:
+        ks, sse = kmeans_curve_cached(X)
+        fig = px.line(x=ks, y=sse, markers=True, title="KMeans — SSE vs K (Elbow)")
+        fig.update_xaxes(title="K"); fig.update_yaxes(title="SSE (↓ tốt hơn)")
+        st.plotly_chart(fig, use_container_width=True)
+    with tabs[1]:
+        ks, fpc = fcm_curve_cached(X)
+        fig = px.line(x=ks, y=fpc, markers=True, title="FuzzyCMeans — FPC vs K (↑ tốt hơn)")
+        fig.update_xaxes(title="K"); fig.update_yaxes(title="FPC")
+        st.plotly_chart(fig, use_container_width=True)
+    with tabs[2]:
+        ks, bic = gmm_curve_cached(X)
+        fig = px.line(x=ks, y=bic, markers=True, title="ManualGMM — BIC vs K (↓ tốt hơn)")
+        fig.update_xaxes(title="K"); fig.update_yaxes(title="BIC")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with tabs[3]:
+        ks, bics = lca_curve_cached(X)
+        fig = px.line(x=ks, y=bics, markers=True, title="LatentClass — BIC vs K (↓ tốt hơn)")
+        fig.update_xaxes(title="K"); fig.update_yaxes(title="BIC")
+        st.plotly_chart(fig, use_container_width=True)
+    with tabs[4]:
+        d, (ks_ref, sses), (k_auto, cut_h) = hier_curves_cached(X)
+        fig = plotly_dendrogram_from_scipy(d)
+        fig.add_hline(y=cut_h, line_dash="dash", line_width=2)
+        fig.update_layout(title=f"Hierarchical (Ward) — Dendrogram (gợi ý K ≈ {k_auto}, cut@{cut_h:.3f})")
+        st.plotly_chart(fig, use_container_width=True)
+        fig2 = px.line(x=ks_ref, y=sses, markers=True, title="Hierarchical Ward — SSE vs K (tham khảo)")
+        fig2.update_xaxes(title="K"); fig2.update_yaxes(title="SSE")
+        st.plotly_chart(fig2, use_container_width=True)
+
+
+
+
 # ================== RUN ONE MODEL ==================
 def _run_one_model(name, X, k, hier_cfg):
     with profile_block() as prof:
@@ -294,11 +331,9 @@ def show_clusters(results, X, viz_type):
 
             st.plotly_chart(fig, use_container_width=True)
 
-# ================== MAIN ==================
-show_model_curves = True  # luôn hiển thị curve
-
-if show_model_curves:
+if True:
     st.markdown("### Biểu đồ tham khảo chọn K")
+    show_model_curves(X)
 
 if run_btn:
     results = run_models(X, models, k_values)
